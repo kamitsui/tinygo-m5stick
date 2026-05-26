@@ -18,6 +18,9 @@
 !Makefile
 !LICENSE
 
+# Claude Code 設定（json は既定で無視されるため個別に許可）
+!.claude/settings.json
+
 # 4) ホワイトリストの取りこぼし対策（重いディレクトリ・生成物は明示的に再無視）
 #    ※ これらは後でドキュメント(VitePress)等を追加した際の保険。
 node_modules/
