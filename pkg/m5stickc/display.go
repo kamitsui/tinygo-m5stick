@@ -79,3 +79,20 @@ func (d *Display) FillScreen(c color.RGBA) {
 func (d *Display) Display() error {
 	return d.dev.Display()
 }
+
+// DrawBuffer は自然な向きの論理座標 (x,y) に、w×h の RGBA バッファ（[[Canvas]] の
+// Buffer など、row-major・自然な向き）を一括転送する。1回のバルク書き込みになるため
+// ちらつかない。内部の Rotation180 に合わせ、転送時にバッファを180°回転させる
+// （処理後に元へ戻すので buf の内容は保持される）。
+func (d *Display) DrawBuffer(x, y, w, h int16, buf []color.RGBA) error {
+	reverseRGBA(buf) // 180°回転（row-major 全体反転）
+	err := d.dev.FillRectangleWithBuffer(DisplayWidth-x-w, DisplayHeight-y-h, w, h, buf)
+	reverseRGBA(buf) // 呼び出し側のために元へ戻す
+	return err
+}
+
+func reverseRGBA(b []color.RGBA) {
+	for i, j := 0, len(b)-1; i < j; i, j = i+1, j-1 {
+		b[i], b[j] = b[j], b[i]
+	}
+}

@@ -73,7 +73,7 @@ func titleAndSeed(btnA m5stickc.Button) int64 {
 	return n + time.Now().UnixNano()
 }
 
-func playGame(btnA, btnB m5stickc.Button, bz m5stickc.Buzzer, rng *rand.Rand) {
+func playGame(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rng *rand.Rand) {
 	display.FillScreen(colBG)
 	drawBar(0)
 
@@ -183,7 +183,7 @@ func drawBar(score int) {
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 16, "SCORE "+strconv.Itoa(score), colText)
 }
 
-func gameOver(btnA m5stickc.Button, bz m5stickc.Buzzer, score int) {
+func gameOver(btnA m5stickc.Button, bz *m5stickc.Buzzer, score int) {
 	bz.Tone(m5stickc.NoteG4, 120)
 	bz.Tone(m5stickc.NoteE4, 120)
 	bz.Tone(m5stickc.NoteC4, 240)
