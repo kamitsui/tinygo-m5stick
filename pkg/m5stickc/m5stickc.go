@@ -27,6 +27,10 @@ const (
 	tftDC  = machine.GPIO14
 	tftCS  = machine.GPIO5
 	tftBL  = machine.GPIO27
+
+	// 内蔵 IMU (MPU6886) などが繋がる内部 I2C。
+	imuSDA = machine.GPIO21
+	imuSCL = machine.GPIO22
 )
 
 // HoldPower は電源保持ピンを HIGH にし、バッテリ駆動時に電源が落ちないようにする。
