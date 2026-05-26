@@ -1,0 +1,11 @@
+# 改行コードは LF に正規化（クロスプラットフォーム対策）
+* text=auto eol=lf
+
+# Go ソースは常に LF
+*.go text eol=lf
+
+# バイナリ（ビルド生成物など）は差分・改行変換の対象外
+*.bin binary
+*.elf binary
+*.hex binary
+*.uf2 binary
