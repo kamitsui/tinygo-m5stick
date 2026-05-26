@@ -1,4 +1,4 @@
-module github.com/kamitsui/m5stick
+module github.com/kamitsui/tinygo-m5stick
 
 go 1.22.1
 
