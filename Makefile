@@ -24,7 +24,7 @@ BUILD_DIR := build
 OUT       := $(BUILD_DIR)/$(PROJ).bin
 
 .DEFAULT_GOAL := help
-.PHONY: help list check-tools check-proj build flash monitor clean
+.PHONY: help list check-tools check-proj build flash monitor clean docs-dev docs-build docs-preview
 
 help: ## このヘルプを表示
 	@echo "tinygo-m5stick — targets:"
@@ -62,3 +62,13 @@ monitor: check-tools ## シリアルモニタを開く (例: make monitor [PORT=
 
 clean: ## ビルド生成物を削除
 	rm -rf $(BUILD_DIR)
+
+# ---- ドキュメント (VitePress) ----
+docs-dev: ## ドキュメントをローカルプレビュー（開発サーバ）
+	npm run docs:dev
+
+docs-build: ## ドキュメントをビルド
+	npm run docs:build
+
+docs-preview: ## ビルド済みドキュメントをプレビュー
+	npm run docs:preview
