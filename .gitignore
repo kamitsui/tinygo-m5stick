@@ -14,6 +14,9 @@
 !*.md
 !.gitignore
 !.gitattributes
+# 拡張子の無いファイル（whitelist 方式の取りこぼし対策）
+!Makefile
+!LICENSE
 
 # 4) ホワイトリストの取りこぼし対策（重いディレクトリ・生成物は明示的に再無視）
 #    ※ これらは後でドキュメント(VitePress)等を追加した際の保険。
