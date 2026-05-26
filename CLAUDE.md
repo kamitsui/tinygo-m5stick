@@ -28,7 +28,7 @@ make help                     # ターゲット一覧と現在の変数
 ## ハードウェアの要点（検証済み）
 
 - ピン: LED=G19, HOLD=G4, BtnA=G37, BtnB=G39, BtnC=G35, Buzzer=G2。表示 SPI2: SCK=G13, MOSI=G15, RST=G12, DC=G14, CS=G5, BL=G27。
-- **表示器 ST7789V2**: ドライバ(st7789 v0.35.0)は Rotation0 でオフセットを 0 に潰す。検証済みの `Rotation180 + ColumnOffset 53 + RowOffset 40` を使う（`NewDisplay()` が設定済み）。USB-C を上にすると正立。
+- **表示器 ST7789V2**: ドライバ(st7789 v0.35.0)は Rotation0 でオフセットを 0 に潰す。検証済みの `Rotation180 + ColumnOffset 53 + RowOffset 40` を使う。`pkg/m5stickc` の `NewDisplay()` はこれをラップした `*Display` を返し、**論理座標を反転して自然な向き（USB-C を下）**で使えるようにしている（ゲーム向け）。raw にドライバを使う 02-display 等は Rotation180（USB-C 上）のまま。
 - **ブザー**: Xtensa ESP32 は PWM(LEDC) 非対応。`tone` ドライバは使えないので **GPIO ソフトトグル**で矩形波を出す（`Buzzer.Tone`）。
 - **ボタン**: GPIO34-39 は入力専用・内部プルアップ無し。基板側に外部プルアップがあり `PinInput` で読める。押下=LOW（`Button.Pressed()` が反転して返す）。
 - WiFi/BLE は Xtensa ESP32 では TinyGo 非対応（C3/S3 のみ）。本リポジトリの用途では不要。

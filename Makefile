@@ -19,7 +19,8 @@ PROJ   ?= 01-blink
 PORT   ?= $(firstword $(wildcard /dev/cu.wchusbserial*))
 TINYGO ?= tinygo
 
-PROJ_DIR  := projects/$(PROJ)
+# PROJ は projects/ と games/ の両方から自動解決する。
+PROJ_DIR  := $(firstword $(wildcard projects/$(PROJ) games/$(PROJ)))
 BUILD_DIR := build
 OUT       := $(BUILD_DIR)/$(PROJ).bin
 
@@ -33,8 +34,9 @@ help: ## このヘルプを表示
 	@echo ""
 	@echo "vars: PROJ=$(PROJ)  TARGET=$(TARGET)  PORT=$(if $(PORT),$(PORT),<auto: 未検出>)"
 
-list: ## projects/ のプロジェクト一覧を表示
-	@ls -1 projects 2>/dev/null || echo "(projects/ が見つかりません)"
+list: ## projects/ と games/ の一覧を表示
+	@echo "projects/:" && ls -1 projects 2>/dev/null | sed 's/^/  /'
+	@echo "games/:"    && (ls -1 games 2>/dev/null | sed 's/^/  /' || true)
 
 check-tools: ## tinygo が PATH 上にあるか確認
 	@command -v $(TINYGO) >/dev/null 2>&1 || { \
@@ -43,7 +45,7 @@ check-tools: ## tinygo が PATH 上にあるか確認
 		exit 1; }
 
 check-proj:
-	@test -d "$(PROJ_DIR)" || { echo "ERROR: $(PROJ_DIR) が存在しません。'make list' で確認してください"; exit 1; }
+	@test -n "$(strip $(PROJ_DIR))" || { echo "ERROR: '$(PROJ)' が projects/ にも games/ にも見つかりません。'make list' で確認してください"; exit 1; }
 
 build: check-tools check-proj ## ビルド (例: make build PROJ=01-blink)
 	@mkdir -p $(BUILD_DIR)

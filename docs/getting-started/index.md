@@ -100,7 +100,9 @@ TinyGo には **M5StickC Plus2 専用のターゲットが存在しません**�
 ### 表示器 (ST7789V2) の向きとオフセット
 1.14" 135×240 パネルは GRAM の原点からずれて実装されています。ところが TinyGo の `st7789` ドライバ（v0.35.0）は **Rotation0 のとき RowOffset/ColumnOffset を 0 に潰す**実装になっており、そのままだと表示が左にずれます。
 
-検証済みの正しい設定は **`Rotation180` + `ColumnOffset: 53` + `RowOffset: 40`** です（`ColumnOffset` は 52 だと左端に 1px 残るため 53）。この向きでは **USB-C を上にすると文字が正立**します。`pkg/m5stickc` の `NewDisplay()` がこの設定で初期化済みです。
+検証済みの正しい設定は **`Rotation180` + `ColumnOffset: 53` + `RowOffset: 40`** です（`ColumnOffset` は 52 だと左端に 1px 残るため 53）。ただし `Rotation180` 単体だと **USB-C を上にして持つ**必要があり、ボタンの物理位置と向きが噛み合いません。
+
+そこで `pkg/m5stickc` の `NewDisplay()` は、この設定を内部に持ちつつ**論理座標を反転して「自然な向き」を提供するラッパ `Display`** を返します。これにより **USB-C を下にした自然な持ち方**で、左上原点・文字も正立で扱えます（ゲームの操作感も自然になります）。低レベルにドライバを直接使う `projects/02-display` などは raw な `Rotation180`（USB-C 上）のままで、この挙動の違いを示しています。
 
 ### ブザーは PWM が使えない
 TinyGo の Xtensa 版 ESP32 は **PWM(LEDC) 未対応**です。そのため PWM を前提とする `tinygo.org/x/drivers/tone` は使えません。本リポジトリでは **GPIO をソフトでトグルして矩形波を作る**方式（`pkg/m5stickc` の `Buzzer.Tone`）で音を鳴らしています。

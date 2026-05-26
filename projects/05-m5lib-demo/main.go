@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/kamitsui/tinygo-m5stick/pkg/m5stickc"
-	"tinygo.org/x/drivers/st7789"
 	"tinygo.org/x/tinyfont"
 	"tinygo.org/x/tinyfont/freemono"
 )
@@ -42,12 +41,12 @@ func main() {
 	display := m5stickc.NewDisplay()
 	display.FillScreen(black)
 	display.FillRectangle(0, 0, m5stickc.DisplayWidth, 28, blue)
-	tinyfont.WriteLine(&display, &freemono.Bold9pt7b, 8, 20, "m5stickc", white)
-	tinyfont.WriteLine(&display, &freemono.Bold9pt7b, 8, 70, "A:count", white)
-	tinyfont.WriteLine(&display, &freemono.Bold9pt7b, 8, 95, "B:reset", white)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 8, 20, "m5stickc", white)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 8, 70, "A:count", white)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 8, 95, "B:reset", white)
 
 	count := 0
-	drawCount(&display, count)
+	drawCount(display, count)
 
 	var prevA, prevB bool
 	for {
@@ -55,7 +54,7 @@ func main() {
 
 		if a && !prevA { // 押した瞬間（立ち上がり）
 			count++
-			drawCount(&display, count)
+			drawCount(display, count)
 			led.High()
 			buzzer.Tone(m5stickc.NoteC5, 60)
 			buzzer.Tone(m5stickc.NoteE5, 60)
@@ -65,7 +64,7 @@ func main() {
 		}
 		if b && !prevB {
 			count = 0
-			drawCount(&display, count)
+			drawCount(display, count)
 			buzzer.Tone(m5stickc.NoteG4, 120)
 		}
 
@@ -74,7 +73,7 @@ func main() {
 	}
 }
 
-func drawCount(d *st7789.Device, count int) {
+func drawCount(d *m5stickc.Display, count int) {
 	d.FillRectangle(0, 150, m5stickc.DisplayWidth, 40, black)
 	tinyfont.WriteLine(d, &freemono.Bold12pt7b, 8, 180, "= "+strconv.Itoa(count), green)
 }
