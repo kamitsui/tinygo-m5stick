@@ -46,11 +46,9 @@ var (
 var display *m5stickc.Display
 
 func main() {
-	m5stickc.HoldPower()
-	display = m5stickc.NewDisplay()
-	btnA := m5stickc.NewButton(m5stickc.ButtonAPin)
-	btnB := m5stickc.NewButton(m5stickc.ButtonBPin)
-	buzzer := m5stickc.NewBuzzer(m5stickc.BuzzerPin)
+	con := m5stickc.NewConsole()
+	display = con.Display
+	btnA, btnB, buzzer := con.BtnA, con.BtnB, con.Buzzer
 
 	imu, err := m5stickc.NewIMU()
 	if err != nil {
@@ -61,27 +59,19 @@ func main() {
 		}
 	}
 
-	rng := rand.New(rand.NewSource(title(btnA)))
+	rng := rand.New(rand.NewSource(title(btnA, btnB, buzzer)))
 	for {
 		play(imu, btnA, btnB, buzzer, rng)
 	}
 }
 
-func title(btnA m5stickc.Button) int64 {
+func title(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer) int64 {
 	display.FillScreen(colCourt)
 	tinyfont.WriteLine(display, &freemono.Bold18pt7b, 18, 100, "PONG", colText)
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 140, "Tilt: move", colText)
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 165, "A: start", colText)
-
-	var n int64
-	for !btnA.Pressed() {
-		n++
-		time.Sleep(5 * time.Millisecond)
-	}
-	for btnA.Pressed() {
-		time.Sleep(10 * time.Millisecond)
-	}
-	return n + time.Now().UnixNano()
+	drawSound(bz.Muted())
+	return m5stickc.WaitStart(btnA, btnB, bz, func() { drawSound(bz.Muted()) })
 }
 
 func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rng *rand.Rand) {
@@ -106,15 +96,12 @@ func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rn
 	display.FillRectangle(bx, by, bs, bs, colBall)
 	prevCpuX, prevPlayerX, prevBx, prevBy := cpuX, playerX, bx, by
 
-	var prevB bool
+	soundBtn := m5stickc.NewEdgeButton(btnB)
 	for {
 		// --- 入力 ---
-		if b := btnB.Pressed(); b && !prevB {
+		if soundBtn.Tapped() {
 			bz.ToggleMuted()
 			drawSound(bz.Muted())
-			prevB = true
-		} else {
-			prevB = b
 		}
 
 		ax, _, _ := imu.Acceleration()
@@ -185,7 +172,7 @@ func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rn
 			}
 			drawScore(youScore, cpuScore)
 			if youScore >= winScore || cpuScore >= winScore {
-				gameOver(btnA, bz, youScore >= winScore)
+				gameOver(btnA, btnB, bz, youScore >= winScore)
 				return
 			}
 			// サーブし直し。
@@ -241,22 +228,16 @@ func drawScore(you, cpu int) {
 
 func drawSound(muted bool) {
 	display.FillRectangle(0, scrH-20, scrW, 20, colCourt)
-	s := "B:Sound ON"
-	if muted {
-		s = "B:Sound OFF"
-	}
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 8, scrH-5, s, colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 8, scrH-5, m5stickc.SoundLabel(muted), colText)
 }
 
-func gameOver(btnA m5stickc.Button, bz *m5stickc.Buzzer, win bool) {
+func gameOver(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, win bool) {
 	if win {
 		bz.Tone(m5stickc.NoteC5, 100)
 		bz.Tone(m5stickc.NoteE5, 100)
 		bz.Tone(m5stickc.NoteG5, 200)
 	} else {
-		bz.Tone(m5stickc.NoteG4, 120)
-		bz.Tone(m5stickc.NoteE4, 120)
-		bz.Tone(m5stickc.NoteC4, 240)
+		m5stickc.GameOverJingle(bz)
 	}
 
 	display.FillRectangle(0, 95, scrW, 80, colCourt)
@@ -267,10 +248,5 @@ func gameOver(btnA m5stickc.Button, bz *m5stickc.Buzzer, win bool) {
 	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 8, 128, msg, colText)
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 22, 158, "A: retry", colText)
 
-	for btnA.Pressed() {
-		time.Sleep(20 * time.Millisecond)
-	}
-	for !btnA.Pressed() {
-		time.Sleep(20 * time.Millisecond)
-	}
+	m5stickc.WaitRetry(btnA, btnB, bz, func() { drawSound(bz.Muted()) })
 }

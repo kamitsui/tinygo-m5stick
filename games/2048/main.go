@@ -48,12 +48,10 @@ var (
 )
 
 func main() {
-	m5stickc.HoldPower()
-	display = m5stickc.NewDisplay()
+	con := m5stickc.NewConsole()
+	display = con.Display
 	field = m5stickc.NewCanvas(gridSpan, gridSpan)
-	btnA := m5stickc.NewButton(m5stickc.ButtonAPin)
-	btnB := m5stickc.NewButton(m5stickc.ButtonBPin)
-	buzzer := m5stickc.NewBuzzer(m5stickc.BuzzerPin)
+	btnA, btnB, buzzer := con.BtnA, con.BtnB, con.Buzzer
 
 	imu, err := m5stickc.NewIMU()
 	if err != nil {
@@ -64,21 +62,29 @@ func main() {
 		}
 	}
 
-	rng := rand.New(rand.NewSource(title(imu)))
+	rng := rand.New(rand.NewSource(title(imu, btnB, buzzer)))
 	for {
 		play(imu, btnA, btnB, buzzer, rng)
 	}
 }
 
 // title はタイトルを表示し、最初の傾けまでの待ち時間を乱数シードにする。
-func title(imu *m5stickc.IMU) int64 {
+// 開始はチルトなので（A待ちではないため）共通の WaitStart は使わず、待機中の
+// B によるサウンド切替だけ自前で行う。
+func title(imu *m5stickc.IMU, btnB m5stickc.Button, bz *m5stickc.Buzzer) int64 {
 	display.FillScreen(colBG)
 	tinyfont.WriteLine(display, &freemono.Bold24pt7b, 14, 110, "2048", color.RGBA{237, 194, 46, 255})
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 10, 150, "Tilt to", colText)
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 10, 172, "play", colText)
+	drawSound(bz.Muted())
 
+	soundBtn := m5stickc.NewEdgeButton(btnB)
 	var n int64
 	for imu.Tilt(tiltTh) == m5stickc.DirNone {
+		if soundBtn.Tapped() {
+			bz.ToggleMuted()
+			drawSound(bz.Muted())
+		}
 		n++
 		time.Sleep(5 * time.Millisecond)
 	}
@@ -96,15 +102,13 @@ func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rn
 	drawSound(bz.Muted())
 
 	ready := false
-	var prevB bool
+	soundBtn := m5stickc.NewEdgeButton(btnB)
 	for {
-		// ボタンB: 音の ON/OFF 切替（押した瞬間）。
-		b := btnB.Pressed()
-		if b && !prevB {
+		// ボタンB: 音の ON/OFF 切替。
+		if soundBtn.Tapped() {
 			bz.ToggleMuted()
 			drawSound(bz.Muted())
 		}
-		prevB = b
 
 		d := imu.Tilt(tiltTh)
 		if d == m5stickc.DirNone {
@@ -131,7 +135,7 @@ func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rn
 		drawBoard()
 
 		if !movesPossible() {
-			gameOver(btnA, bz, score)
+			gameOver(btnA, btnB, bz, score)
 			return
 		}
 	}
@@ -345,27 +349,16 @@ func tileText(v int16) color.RGBA {
 // drawSound は画面下部に音のON/OFF状態（Bで切替）を表示する。
 func drawSound(muted bool) {
 	display.FillRectangle(0, 200, 135, 24, colBG)
-	s := "B:Sound ON"
-	if muted {
-		s = "B:Sound OFF"
-	}
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 8, 216, s, colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 8, 216, m5stickc.SoundLabel(muted), colText)
 }
 
-func gameOver(btnA m5stickc.Button, bz *m5stickc.Buzzer, score int) {
-	bz.Tone(m5stickc.NoteG4, 120)
-	bz.Tone(m5stickc.NoteE4, 120)
-	bz.Tone(m5stickc.NoteC4, 240)
+func gameOver(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, score int) {
+	m5stickc.GameOverJingle(bz)
 
 	display.FillRectangle(0, 95, 135, 90, colBG)
 	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 24, 122, "GAME", colText)
 	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 24, 148, "OVER", colText)
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 22, 175, "A: retry", colText)
 
-	for btnA.Pressed() {
-		time.Sleep(20 * time.Millisecond)
-	}
-	for !btnA.Pressed() {
-		time.Sleep(20 * time.Millisecond)
-	}
+	m5stickc.WaitRetry(btnA, btnB, bz, func() { drawSound(bz.Muted()) })
 }
