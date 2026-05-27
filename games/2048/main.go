@@ -5,7 +5,7 @@
 // ゲームオーバー後はボタンAでリスタート。
 //
 // 書き込み: make flash PROJ=2048
-package main
+package g2048
 
 import (
 	"image/color"
@@ -47,51 +47,73 @@ var (
 	board   [4][4]int16
 )
 
-func main() {
-	con := m5stickc.NewConsole()
+// Run はランチャー（または cmd/2048）から呼ばれるエントリ。IMU(チルト)必須。
+func Run(con *m5stickc.Console, imu *m5stickc.IMU) {
 	display = con.Display
 	field = m5stickc.NewCanvas(gridSpan, gridSpan)
 	btnA, btnB, buzzer := con.BtnA, con.BtnB, con.Buzzer
 
-	imu, err := m5stickc.NewIMU()
-	if err != nil {
+	if imu == nil {
 		display.FillScreen(colBG)
 		tinyfont.WriteLine(display, &freemono.Bold9pt7b, 8, 80, "IMU FAIL", color.RGBA{230, 40, 40, 255})
-		for {
-			time.Sleep(time.Second)
-		}
+		time.Sleep(2 * time.Second)
+		return
 	}
 
-	rng := rand.New(rand.NewSource(title(imu, btnB, buzzer)))
+	seed, exit := title(imu, btnA, btnB, buzzer)
+	if exit {
+		return // メニューへ
+	}
+	rng := rand.New(rand.NewSource(seed))
 	for {
-		play(imu, btnA, btnB, buzzer, rng)
+		if !play(imu, btnA, btnB, buzzer, rng) {
+			return // メニューへ
+		}
 	}
 }
 
-// title はタイトルを表示し、最初の傾けまでの待ち時間を乱数シードにする。
-// 開始はチルトなので（A待ちではないため）共通の WaitStart は使わず、待機中の
-// B によるサウンド切替だけ自前で行う。
-func title(imu *m5stickc.IMU, btnB m5stickc.Button, bz *m5stickc.Buzzer) int64 {
+// title はタイトルを表示し、(乱数シード, メニューへ戻るか) を返す。
+// 開始はチルト（A待ちではない）なので共通 WaitStart は使わず、待機中の
+// B サウンド切替・A長押しでメニュー復帰を自前で行う。
+func title(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer) (int64, bool) {
 	display.FillScreen(colBG)
-	tinyfont.WriteLine(display, &freemono.Bold24pt7b, 14, 110, "2048", color.RGBA{237, 194, 46, 255})
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 10, 150, "Tilt to", colText)
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 10, 172, "play", colText)
+	tinyfont.WriteLine(display, &freemono.Bold24pt7b, 14, 104, "2048", color.RGBA{237, 194, 46, 255})
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 10, 142, "Tilt to play", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 10, 168, "hold A:menu", colText)
 	drawSound(bz.Muted())
 
+	for btnA.Pressed() { // 持ち越しの A を離す
+		time.Sleep(10 * time.Millisecond)
+	}
 	soundBtn := m5stickc.NewEdgeButton(btnB)
 	var n int64
-	for imu.Tilt(tiltTh) == m5stickc.DirNone {
+	held := 0
+	for {
 		if soundBtn.Tapped() {
 			bz.ToggleMuted()
 			drawSound(bz.Muted())
 		}
+		if imu.Tilt(tiltTh) != m5stickc.DirNone {
+			return n + time.Now().UnixNano(), false // 傾けて開始
+		}
+		if btnA.Pressed() {
+			held++
+			if held >= 90 { // A長押し → メニュー
+				for btnA.Pressed() {
+					time.Sleep(10 * time.Millisecond)
+				}
+				return n + time.Now().UnixNano(), true
+			}
+		} else {
+			held = 0
+		}
 		n++
 		time.Sleep(5 * time.Millisecond)
 	}
-	return n + time.Now().UnixNano()
 }
 
-func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rng *rand.Rand) {
+// play は1ゲーム実行し、リトライ(true)/メニュー復帰(false)を返す。
+func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rng *rand.Rand) bool {
 	board = [4][4]int16{}
 	score := 0
 	spawn(rng)
@@ -135,8 +157,7 @@ func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rn
 		drawBoard()
 
 		if !movesPossible() {
-			gameOver(btnA, btnB, bz, score)
-			return
+			return gameOver(btnA, btnB, bz, score)
 		}
 	}
 }
@@ -352,13 +373,14 @@ func drawSound(muted bool) {
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 8, 216, m5stickc.SoundLabel(muted), colText)
 }
 
-func gameOver(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, score int) {
+func gameOver(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, score int) bool {
 	m5stickc.GameOverJingle(bz)
 
-	display.FillRectangle(0, 95, 135, 90, colBG)
-	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 24, 122, "GAME", colText)
-	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 24, 148, "OVER", colText)
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 22, 175, "A: retry", colText)
+	display.FillRectangle(0, 95, 135, 95, colBG)
+	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 24, 120, "GAME", colText)
+	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 24, 144, "OVER", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 22, 166, "A: retry", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 22, 184, "hold A:menu", colText)
 
-	m5stickc.WaitRetry(btnA, btnB, bz, func() { drawSound(bz.Muted()) })
+	return m5stickc.WaitRetryOrExit(btnA, btnB, bz, func() { drawSound(bz.Muted()) })
 }

@@ -6,7 +6,7 @@
 // 先に 5 点取ったら勝ち。ゲーム後は A でリスタート。
 //
 // 書き込み: make flash PROJ=pong
-package main
+package pong
 
 import (
 	"image/color"
@@ -45,36 +45,42 @@ var (
 
 var display *m5stickc.Display
 
-func main() {
-	con := m5stickc.NewConsole()
+// Run はランチャー（または cmd/pong）から呼ばれるエントリ。IMU(チルト)必須。
+func Run(con *m5stickc.Console, imu *m5stickc.IMU) {
 	display = con.Display
 	btnA, btnB, buzzer := con.BtnA, con.BtnB, con.Buzzer
 
-	imu, err := m5stickc.NewIMU()
-	if err != nil {
+	if imu == nil {
 		display.FillScreen(colCourt)
 		tinyfont.WriteLine(display, &freemono.Bold9pt7b, 8, 80, "IMU FAIL", color.RGBA{230, 40, 40, 255})
-		for {
-			time.Sleep(time.Second)
-		}
+		time.Sleep(2 * time.Second)
+		return
 	}
 
-	rng := rand.New(rand.NewSource(title(btnA, btnB, buzzer)))
+	seed, exit := title(btnA, btnB, buzzer)
+	if exit {
+		return // メニューへ
+	}
+	rng := rand.New(rand.NewSource(seed))
 	for {
-		play(imu, btnA, btnB, buzzer, rng)
+		if !play(imu, btnA, btnB, buzzer, rng) {
+			return // メニューへ
+		}
 	}
 }
 
-func title(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer) int64 {
+func title(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer) (int64, bool) {
 	display.FillScreen(colCourt)
 	tinyfont.WriteLine(display, &freemono.Bold18pt7b, 18, 100, "PONG", colText)
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 140, "Tilt: move", colText)
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 165, "A: start", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 138, "Tilt: move", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 160, "A: start", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 182, "hold A:menu", colText)
 	drawSound(bz.Muted())
 	return m5stickc.WaitStart(btnA, btnB, bz, func() { drawSound(bz.Muted()) })
 }
 
-func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rng *rand.Rand) {
+// play は1ゲーム実行し、リトライ(true)/メニュー復帰(false)を返す。
+func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rng *rand.Rand) bool {
 	display.FillScreen(colCourt)
 	youScore, cpuScore := 0, 0
 	drawScore(youScore, cpuScore)
@@ -172,8 +178,7 @@ func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rn
 			}
 			drawScore(youScore, cpuScore)
 			if youScore >= winScore || cpuScore >= winScore {
-				gameOver(btnA, btnB, bz, youScore >= winScore)
-				return
+				return gameOver(btnA, btnB, bz, youScore >= winScore)
 			}
 			// サーブし直し。
 			display.FillRectangle(prevBx, prevBy, bs, bs, colCourt)
@@ -231,7 +236,7 @@ func drawSound(muted bool) {
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 8, scrH-5, m5stickc.SoundLabel(muted), colText)
 }
 
-func gameOver(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, win bool) {
+func gameOver(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, win bool) bool {
 	if win {
 		bz.Tone(m5stickc.NoteC5, 100)
 		bz.Tone(m5stickc.NoteE5, 100)
@@ -240,13 +245,14 @@ func gameOver(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, win bool) {
 		m5stickc.GameOverJingle(bz)
 	}
 
-	display.FillRectangle(0, 95, scrW, 80, colCourt)
+	display.FillRectangle(0, 95, scrW, 90, colCourt)
 	msg := "YOU WIN"
 	if !win {
 		msg = "YOU LOSE"
 	}
-	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 8, 128, msg, colText)
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 22, 158, "A: retry", colText)
+	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 8, 126, msg, colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 22, 152, "A: retry", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 22, 172, "hold A:menu", colText)
 
-	m5stickc.WaitRetry(btnA, btnB, bz, func() { drawSound(bz.Muted()) })
+	return m5stickc.WaitRetryOrExit(btnA, btnB, bz, func() { drawSound(bz.Muted()) })
 }

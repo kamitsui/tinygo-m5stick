@@ -10,7 +10,7 @@
 // 描画は移動した物体だけを部分再描画してちらつきを抑える。
 //
 // 書き込み: make flash PROJ=invaders
-package main
+package invaders
 
 import (
 	"image/color"
@@ -72,32 +72,36 @@ var (
 
 type vec struct{ x, y int16 }
 
-func main() {
-	con := m5stickc.NewConsole()
+// Run はランチャー（または cmd/invaders）から呼ばれるエントリ。IMU(チルト)必須。
+func Run(con *m5stickc.Console, imu *m5stickc.IMU) {
 	display = con.Display
 	btnA, btnB, buzzer := con.BtnA, con.BtnB, con.Buzzer
 
-	imu, err := m5stickc.NewIMU()
-	if err != nil {
+	if imu == nil {
 		display.FillScreen(colBG)
 		tinyfont.WriteLine(display, &freemono.Bold9pt7b, 8, 80, "IMU FAIL", color.RGBA{230, 40, 40, 255})
-		for {
-			time.Sleep(time.Second)
-		}
+		time.Sleep(2 * time.Second)
+		return
 	}
 
-	rng := rand.New(rand.NewSource(title(btnA, btnB, buzzer)))
+	seed, exit := title(btnA, btnB, buzzer)
+	if exit {
+		return // メニューへ
+	}
+	rng := rand.New(rand.NewSource(seed))
 	for {
-		play(imu, btnA, btnB, buzzer, rng)
+		if !play(imu, btnA, btnB, buzzer, rng) {
+			return // メニューへ
+		}
 	}
 }
 
-func title(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer) int64 {
+func title(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer) (int64, bool) {
 	display.FillScreen(colBG)
-	tinyfont.WriteLine(display, &freemono.Bold18pt7b, 4, 86, "INVADE", colInv)
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 122, "Tilt: move", colText)
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 144, "A: fire", colText)
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 166, "A-hold: rapid", colText)
+	tinyfont.WriteLine(display, &freemono.Bold18pt7b, 4, 84, "INVADE", colInv)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 120, "Tilt: move", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 142, "A: fire", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 164, "hold A:menu", colText)
 	drawTitleSound(bz.Muted())
 	return m5stickc.WaitStart(btnA, btnB, bz, func() { drawTitleSound(bz.Muted()) })
 }
@@ -105,7 +109,8 @@ func title(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer) int64 {
 func invX(c int) int16 { return fx + int16(c)*(invW+gapX) }
 func invY(r int) int16 { return fy + int16(r)*(invH+gapY) }
 
-func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rng *rand.Rand) {
+// play は1ゲーム実行し、リトライ(true)/メニュー復帰(false)を返す。
+func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rng *rand.Rand) bool {
 	score := 0
 	wave := 0
 	display.FillScreen(colBG)
@@ -208,8 +213,7 @@ func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rn
 		for _, bm := range bombs {
 			bm.y += 3
 			if bm.y >= shipY && bm.x+bombW > shipX && bm.x < shipX+shipW {
-				gameOver(btnA, btnB, bz, score)
-				return
+				return gameOver(btnA, btnB, bz, score)
 			}
 			if bm.y < shipY+shipH {
 				display.FillRectangle(bm.x, bm.y, bombW, bombH, colBomb)
@@ -241,8 +245,7 @@ func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rn
 			}
 			drawFormation(true)
 			if lowestY()+invH >= shipY {
-				gameOver(btnA, btnB, bz, score)
-				return
+				return gameOver(btnA, btnB, bz, score)
 			}
 		}
 
@@ -381,15 +384,16 @@ func drawTitleSound(muted bool) {
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 218, m5stickc.SoundLabel(muted), colText)
 }
 
-func gameOver(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, score int) {
+func gameOver(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, score int) bool {
 	m5stickc.GameOverJingle(bz)
 
-	display.FillRectangle(6, 100, scrW-12, 80, color.RGBA{0, 0, 0, 255})
-	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 22, 128, "GAME", colText)
-	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 22, 152, "OVER", colText)
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 22, 176, "A: retry", colText)
+	display.FillRectangle(6, 96, scrW-12, 96, color.RGBA{0, 0, 0, 255})
+	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 22, 122, "GAME", colText)
+	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 22, 146, "OVER", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 18, 168, "A: retry", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 18, 186, "hold A:menu", colText)
 
-	m5stickc.WaitRetry(btnA, btnB, bz, func() { drawSound(bz.Muted()) })
+	return m5stickc.WaitRetryOrExit(btnA, btnB, bz, func() { drawSound(bz.Muted()) })
 }
 
 func clamp(v, lo, hi int16) int16 {

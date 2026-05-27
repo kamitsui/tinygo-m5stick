@@ -51,26 +51,37 @@ func SoundLabel(muted bool) string {
 	return "B:Sound ON"
 }
 
-// WaitStart はタイトルで A が押されるまで待つ。待機中は B でミュート切替でき
-// （切替後 onToggle を呼ぶ＝各ゲームが表示更新）、A 押下までの待ち時間を加えた
-// 乱数シードを返す。
-func WaitStart(a, b Button, bz *Buzzer, onToggle func()) int64 {
+// WaitStart はタイトルで入力を待ち、(乱数シード, メニューへ戻るか) を返す。
+//   - A タップ      → ゲーム開始（exit=false）
+//   - A 長押し(~0.45s) → トップメニューへ戻る（exit=true。間違えて選んだ時用）
+//   - B             → ミュート切替（onToggle!=nil のとき。切替後 onToggle 呼び出し）
+// 最初に A の離しを待つので、メニューの選択操作（A長押し）が持ち越されても誤発火しない。
+func WaitStart(a, b Button, bz *Buzzer, onToggle func()) (seed int64, exit bool) {
+	for a.Pressed() { // 持ち越しの A を離すまで待つ
+		time.Sleep(10 * time.Millisecond)
+	}
 	be := NewEdgeButton(b)
 	var n int64
-	for !a.Pressed() {
-		if be.Tapped() {
+	held := 0
+	for {
+		if onToggle != nil && be.Tapped() {
 			bz.ToggleMuted()
-			if onToggle != nil {
-				onToggle()
+			onToggle()
+		}
+		if a.Pressed() {
+			held++
+			if held >= 90 { // 長押し → メニューへ
+				for a.Pressed() {
+					time.Sleep(10 * time.Millisecond)
+				}
+				return n + time.Now().UnixNano(), true
 			}
+		} else if held > 0 { // タップで離した → 開始
+			return n + time.Now().UnixNano(), false
 		}
 		n++
 		time.Sleep(5 * time.Millisecond)
 	}
-	for a.Pressed() { // 離されるまで待つ
-		time.Sleep(10 * time.Millisecond)
-	}
-	return n + time.Now().UnixNano()
 }
 
 // GameOverJingle は共通の下降音（ゲームオーバー）を鳴らす。
@@ -93,6 +104,35 @@ func WaitRetry(a, b Button, bz *Buzzer, onToggle func()) {
 			if onToggle != nil {
 				onToggle()
 			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+// WaitRetryOrExit はゲームオーバー後の入力を待ち、A タップ=リトライ(true) /
+// A 長押し(約0.5秒)=メニューへ戻る(false) を返す。待機中は B でミュート切替
+// でき（onToggle!=nil のときのみ）。ランチャーから呼ばれるゲームで使う。
+func WaitRetryOrExit(a, b Button, bz *Buzzer, onToggle func()) bool {
+	for a.Pressed() { // まず離す
+		time.Sleep(20 * time.Millisecond)
+	}
+	be := NewEdgeButton(b)
+	held := 0
+	for {
+		if onToggle != nil && be.Tapped() {
+			bz.ToggleMuted()
+			onToggle()
+		}
+		if a.Pressed() {
+			held++
+			if held >= 24 { // 長押し → メニューへ
+				for a.Pressed() {
+					time.Sleep(10 * time.Millisecond)
+				}
+				return false
+			}
+		} else if held > 0 { // 短押しで離した → リトライ
+			return true
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
