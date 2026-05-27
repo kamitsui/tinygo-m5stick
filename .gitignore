@@ -20,6 +20,8 @@
 
 # Claude Code 設定（json は既定で無視されるため個別に許可）
 !.claude/settings.json
+# フック等のシェルスクリプト
+!*.sh
 
 # Node / VitePress（ルート限定で許可。node_modules 等への波及を防ぐため
 # パス指定で個別に許可する）
