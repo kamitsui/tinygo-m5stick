@@ -85,14 +85,11 @@ var melody = []struct{ f, d int }{
 // playMelody はメロディを1回再生する（ブロッキング）。再生中も btnB でミュート
 // 切替でき、ミュートすると以降の音は即座に無音で進む（実質中断）。
 func playMelody(bz *m5stickc.Buzzer, btnB m5stickc.Button) {
-	prevB := btnB.Pressed()
+	soundBtn := m5stickc.NewEdgeButton(btnB)
 	for _, n := range melody {
-		if b := btnB.Pressed(); b && !prevB {
+		if soundBtn.Tapped() {
 			bz.ToggleMuted()
 			drawSound(bz.Muted())
-			prevB = true
-		} else {
-			prevB = b
 		}
 		if n.f == 0 {
 			bz.Tone(0, n.d)
@@ -131,11 +128,9 @@ var (
 )
 
 func main() {
-	m5stickc.HoldPower()
-	display = m5stickc.NewDisplay()
-	btnA := m5stickc.NewButton(m5stickc.ButtonAPin)
-	btnB := m5stickc.NewButton(m5stickc.ButtonBPin)
-	buzzer := m5stickc.NewBuzzer(m5stickc.BuzzerPin)
+	con := m5stickc.NewConsole()
+	display = con.Display
+	btnA, btnB, buzzer := con.BtnA, con.BtnB, con.Buzzer
 
 	imu, err := m5stickc.NewIMU()
 	if err != nil {
@@ -159,34 +154,13 @@ func title(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer) int64 {
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 150, "Tilt v: drop", colText)
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 170, "A: rotate", colText)
 	drawTitleSound(bz.Muted())
-
-	var n int64
-	prevB := btnB.Pressed()
-	for !btnA.Pressed() {
-		if b := btnB.Pressed(); b && !prevB {
-			bz.ToggleMuted()
-			drawTitleSound(bz.Muted())
-			prevB = true
-		} else {
-			prevB = b
-		}
-		n++
-		time.Sleep(5 * time.Millisecond)
-	}
-	for btnA.Pressed() {
-		time.Sleep(10 * time.Millisecond)
-	}
-	return n + time.Now().UnixNano()
+	return m5stickc.WaitStart(btnA, btnB, bz, func() { drawTitleSound(bz.Muted()) })
 }
 
 // drawTitleSound はタイトル下部に音のON/OFF（Bで切替）を表示する。
 func drawTitleSound(muted bool) {
 	display.FillRectangle(0, 205, 135, 24, colBG)
-	s := "B: Sound ON"
-	if muted {
-		s = "B: Sound OFF"
-	}
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 222, s, colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 222, m5stickc.SoundLabel(muted), colText)
 }
 
 func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rng *rand.Rand) {
@@ -210,7 +184,8 @@ func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rn
 
 	playMelody(bz, btnB) // 開始メロディ（1回）。終わると操作音が鳴る。再生中も B でミュート可。
 
-	var prevA, prevB bool
+	var prevA bool
+	soundBtn := m5stickc.NewEdgeButton(btnB)
 	moveCD := 0
 	gravity := 0
 	for {
@@ -220,8 +195,7 @@ func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rn
 		}
 
 		a := btnA.Pressed()
-		b := btnB.Pressed()
-		if b && !prevB {
+		if soundBtn.Tapped() {
 			bz.ToggleMuted()
 			drawSound(bz.Muted())
 		}
@@ -230,7 +204,7 @@ func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rn
 				bz.Tone(m5stickc.NoteE5, 15) // 回転音
 			}
 		}
-		prevA, prevB = a, b
+		prevA = a
 
 		t := imu.Tilt(tiltTh)
 		if t == m5stickc.DirLeft || t == m5stickc.DirRight {
@@ -443,36 +417,16 @@ func drawScore(score int) {
 
 func drawSound(muted bool) {
 	display.FillRectangle(0, 20, 135, 18, colBar)
-	s := "B:Sound ON"
-	if muted {
-		s = "B:Sound OFF"
-	}
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 4, 34, s, colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 4, 34, m5stickc.SoundLabel(muted), colText)
 }
 
 func gameOver(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, score int) {
-	bz.Tone(m5stickc.NoteG4, 120)
-	bz.Tone(m5stickc.NoteE4, 120)
-	bz.Tone(m5stickc.NoteC4, 240)
+	m5stickc.GameOverJingle(bz)
 
 	display.FillRectangle(boardX0, 110, boardW, 78, color.RGBA{0, 0, 0, 255})
 	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 8, 138, "GAME", colText)
 	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 8, 162, "OVER", colText)
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 184, "A: retry", colText)
 
-	for btnA.Pressed() {
-		time.Sleep(20 * time.Millisecond)
-	}
-	// A が押されるまで待機。待機中も B で音 ON/OFF 切替（上部の表示を更新）。
-	prevB := btnB.Pressed()
-	for !btnA.Pressed() {
-		if b := btnB.Pressed(); b && !prevB {
-			bz.ToggleMuted()
-			drawSound(bz.Muted())
-			prevB = true
-		} else {
-			prevB = b
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
+	m5stickc.WaitRetry(btnA, btnB, bz, func() { drawSound(bz.Muted()) })
 }

@@ -42,11 +42,12 @@ type pt struct{ x, y int16 }
 var display *m5stickc.Display
 
 func main() {
-	m5stickc.HoldPower()
-	display = m5stickc.NewDisplay()
-	btnA := m5stickc.NewButton(m5stickc.ButtonAPin)
-	btnB := m5stickc.NewButton(m5stickc.ButtonBPin)
-	buzzer := m5stickc.NewBuzzer(m5stickc.BuzzerPin)
+	// Snake は A=左折 / B=右折 で 2 ボタンとも操作に使うため、サウンド ON/OFF は
+	// 持たない（他ゲームと違い B はミュート切替に使わない）。共通の Console と
+	// GameOverJingle のみ利用する。
+	con := m5stickc.NewConsole()
+	display = con.Display
+	btnA, btnB, buzzer := con.BtnA, con.BtnB, con.Buzzer
 
 	rng := rand.New(rand.NewSource(titleAndSeed(btnA)))
 	for {
@@ -184,9 +185,7 @@ func drawBar(score int) {
 }
 
 func gameOver(btnA m5stickc.Button, bz *m5stickc.Buzzer, score int) {
-	bz.Tone(m5stickc.NoteG4, 120)
-	bz.Tone(m5stickc.NoteE4, 120)
-	bz.Tone(m5stickc.NoteC4, 240)
+	m5stickc.GameOverJingle(bz)
 
 	display.FillRectangle(0, 88, 135, 80, colBG)
 	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 22, 116, "GAME", colText)
