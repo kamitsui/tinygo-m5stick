@@ -9,3 +9,8 @@
 *.elf binary
 *.hex binary
 *.uf2 binary
+
+# 画像（差分・改行変換の対象外）
+*.webp binary
+*.png binary
+*.gif binary
