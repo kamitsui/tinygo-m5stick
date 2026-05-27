@@ -1,8 +1,10 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
 // GitHub Pages (project site) で公開するため base を /<repo>/ に設定。
 // https://kamitsui.github.io/tinygo-m5stick/
-export default defineConfig({
+// 図は Mermaid（vitepress-plugin-mermaid）で描画する。
+export default withMermaid(defineConfig({
   lang: 'ja-JP',
   title: 'tinygo-m5stick',
   description: 'TinyGo を M5StickC Plus2 で動かす — チュートリアルとレトロゲーム',
@@ -14,6 +16,7 @@ export default defineConfig({
       { text: 'ホーム', link: '/' },
       { text: 'TinyGoとは', link: '/tinygo/' },
       { text: 'はじめる', link: '/getting-started/' },
+      { text: 'ゲーム設計', link: '/games/' },
     ],
 
     sidebar: [
@@ -29,6 +32,15 @@ export default defineConfig({
         text: 'M5StickC Plus2',
         items: [{ text: 'はじめる（環境構築・書き込み）', link: '/getting-started/' }],
       },
+      {
+        text: 'レトロゲーム設計',
+        items: [
+          { text: '概要・設計思想', link: '/games/' },
+          { text: 'アーキテクチャ（C4 / UML）', link: '/games/architecture' },
+          { text: 'ハードウェア / ソフトウェアの仕組み', link: '/games/hardware' },
+          { text: '各ゲームの実装', link: '/games/implementations' },
+        ],
+      },
     ],
 
     socialLinks: [
@@ -42,4 +54,4 @@ export default defineConfig({
       text: 'このページを GitHub で編集',
     },
   },
-})
+}))
