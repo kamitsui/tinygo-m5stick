@@ -53,6 +53,11 @@ export default withMermaid(defineConfig({
       { icon: 'github', link: 'https://github.com/kamitsui/tinygo-m5stick' },
     ],
 
+    footer: {
+      message: 'Released under the MIT License.',
+      copyright: 'Copyright © 2026 kamitsui',
+    },
+
     search: { provider: 'local' },
 
     editLink: {

@@ -64,3 +64,18 @@ docs/        VitePress ドキュメント（GitHub Pages 公開）
 - 進行は [Issues](https://github.com/kamitsui/tinygo-m5stick/issues) / マイルストーンで管理。
 - ブランチ運用 + PR（squash）。コミットは英語の Conventional Commits。
 - 詳細な規約は [CLAUDE.md](./CLAUDE.md)。
+
+## ライセンス
+
+[MIT License](./LICENSE) で公開しています。個人の学習・ショーケース目的のプロジェクトであり、**無保証**です（MIT の免責条項に従います）。
+
+## 謝辞 / Third-party
+
+本プロジェクトは以下を利用しています（いずれも寛容なライセンス）。
+
+- [TinyGo](https://tinygo.org/) — BSD-3-Clause
+- [tinygo.org/x/drivers](https://github.com/tinygo-org/drivers)（st7789 / mpu6886）— BSD-3-Clause
+- [tinygo.org/x/tinyfont](https://github.com/tinygo-org/tinyfont) — BSD-3-Clause。同梱フォント（freemono / freesans 等）は **GNU FreeFont** 由来（プログラムへの埋め込み配布は許容）。
+- [VitePress](https://vitepress.dev/) / [Mermaid](https://mermaid.js.org/) — MIT（ドキュメント生成）
+
+M5StickC Plus2 は [M5Stack](https://m5stack.com/) の製品/商標です。
