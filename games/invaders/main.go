@@ -73,11 +73,9 @@ var (
 type vec struct{ x, y int16 }
 
 func main() {
-	m5stickc.HoldPower()
-	display = m5stickc.NewDisplay()
-	btnA := m5stickc.NewButton(m5stickc.ButtonAPin)
-	btnB := m5stickc.NewButton(m5stickc.ButtonBPin)
-	buzzer := m5stickc.NewBuzzer(m5stickc.BuzzerPin)
+	con := m5stickc.NewConsole()
+	display = con.Display
+	btnA, btnB, buzzer := con.BtnA, con.BtnB, con.Buzzer
 
 	imu, err := m5stickc.NewIMU()
 	if err != nil {
@@ -101,24 +99,7 @@ func title(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer) int64 {
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 144, "A: fire", colText)
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 166, "A-hold: rapid", colText)
 	drawTitleSound(bz.Muted())
-
-	var n int64
-	prevB := btnB.Pressed()
-	for !btnA.Pressed() {
-		if b := btnB.Pressed(); b && !prevB {
-			bz.ToggleMuted()
-			drawTitleSound(bz.Muted())
-			prevB = true
-		} else {
-			prevB = b
-		}
-		n++
-		time.Sleep(5 * time.Millisecond)
-	}
-	for btnA.Pressed() {
-		time.Sleep(10 * time.Millisecond)
-	}
-	return n + time.Now().UnixNano()
+	return m5stickc.WaitStart(btnA, btnB, bz, func() { drawTitleSound(bz.Muted()) })
 }
 
 func invX(c int) int16 { return fx + int16(c)*(invW+gapX) }
@@ -153,12 +134,12 @@ func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rn
 	fireCD := 0
 	aHeld := 0
 	toggledHold := false
-	var prevA, prevB bool
+	var prevA bool
+	soundBtn := m5stickc.NewEdgeButton(btnB)
 
 	for {
 		a := btnA.Pressed()
-		b := btnB.Pressed()
-		if b && !prevB {
+		if soundBtn.Tapped() {
 			bz.ToggleMuted()
 			drawSound(bz.Muted())
 		}
@@ -187,7 +168,7 @@ func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rn
 		} else if a && !prevA {
 			fire()
 		}
-		prevA, prevB = a, b
+		prevA = a
 
 		// 自機移動（チルト）。
 		ax, _, _ := imu.Acceleration()
@@ -383,11 +364,7 @@ func drawScore(score int) {
 
 func drawSound(muted bool) {
 	display.FillRectangle(0, 20, scrW, 18, colBar)
-	s := "B:Sound ON"
-	if muted {
-		s = "B:Sound OFF"
-	}
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 4, 34, s, colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 4, 34, m5stickc.SoundLabel(muted), colText)
 }
 
 func drawRapid(on bool) {
@@ -401,37 +378,18 @@ func drawRapid(on bool) {
 
 func drawTitleSound(muted bool) {
 	display.FillRectangle(0, 200, scrW, 24, colBG)
-	s := "B: Sound ON"
-	if muted {
-		s = "B: Sound OFF"
-	}
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 218, s, colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 218, m5stickc.SoundLabel(muted), colText)
 }
 
 func gameOver(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, score int) {
-	bz.Tone(m5stickc.NoteG4, 120)
-	bz.Tone(m5stickc.NoteE4, 120)
-	bz.Tone(m5stickc.NoteC4, 240)
+	m5stickc.GameOverJingle(bz)
 
 	display.FillRectangle(6, 100, scrW-12, 80, color.RGBA{0, 0, 0, 255})
 	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 22, 128, "GAME", colText)
 	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 22, 152, "OVER", colText)
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 22, 176, "A: retry", colText)
 
-	prevB := btnB.Pressed()
-	for btnA.Pressed() {
-		time.Sleep(20 * time.Millisecond)
-	}
-	for !btnA.Pressed() {
-		if b := btnB.Pressed(); b && !prevB {
-			bz.ToggleMuted()
-			drawSound(bz.Muted())
-			prevB = true
-		} else {
-			prevB = b
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
+	m5stickc.WaitRetry(btnA, btnB, bz, func() { drawSound(bz.Muted()) })
 }
 
 func clamp(v, lo, hi int16) int16 {
