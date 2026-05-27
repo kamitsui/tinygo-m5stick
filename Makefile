@@ -19,8 +19,9 @@ PROJ   ?= 01-blink
 PORT   ?= $(firstword $(wildcard /dev/cu.wchusbserial*))
 TINYGO ?= tinygo
 
-# PROJ は projects/ と games/ の両方から自動解決する。
-PROJ_DIR  := $(firstword $(wildcard projects/$(PROJ) games/$(PROJ)))
+# PROJ は projects/（チュートリアル）と cmd/（ゲーム単体・ランチャー）から自動解決する。
+# games/ はライブラリパッケージ（直接ビルドせず cmd/ 経由）。
+PROJ_DIR  := $(firstword $(wildcard projects/$(PROJ) cmd/$(PROJ)))
 BUILD_DIR := build
 OUT       := $(BUILD_DIR)/$(PROJ).bin
 
@@ -34,9 +35,9 @@ help: ## このヘルプを表示
 	@echo ""
 	@echo "vars: PROJ=$(PROJ)  TARGET=$(TARGET)  PORT=$(if $(PORT),$(PORT),<auto: 未検出>)"
 
-list: ## projects/ と games/ の一覧を表示
+list: ## projects/ と cmd/ の一覧を表示
 	@echo "projects/:" && ls -1 projects 2>/dev/null | sed 's/^/  /'
-	@echo "games/:"    && (ls -1 games 2>/dev/null | sed 's/^/  /' || true)
+	@echo "cmd/:"      && (ls -1 cmd 2>/dev/null | sed 's/^/  /' || true)
 
 check-tools: ## tinygo が PATH 上にあるか確認
 	@command -v $(TINYGO) >/dev/null 2>&1 || { \

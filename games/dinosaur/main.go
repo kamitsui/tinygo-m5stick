@@ -6,7 +6,7 @@
 // サボテンを飛び越えて進み、ぶつかるとゲームオーバー（A でリトライ）。
 //
 // 書き込み: make flash PROJ=dinosaur
-package main
+package dinosaur
 
 import (
 	"image/color"
@@ -56,29 +56,37 @@ var (
 	bar     *m5stickc.Canvas
 )
 
-func main() {
-	con := m5stickc.NewConsole()
+// Run はランチャー（または cmd/dinosaur）から呼ばれるエントリ。IMU は使わない。
+func Run(con *m5stickc.Console, imu *m5stickc.IMU) {
 	display = con.Display
 	band = m5stickc.NewCanvas(scrW, bandH)
 	bar = m5stickc.NewCanvas(scrW, 26)
 	btnA, btnB, buzzer := con.BtnA, con.BtnB, con.Buzzer
 
-	rng := rand.New(rand.NewSource(title(btnA, btnB, buzzer)))
+	seed, exit := title(btnA, btnB, buzzer)
+	if exit {
+		return // メニューへ
+	}
+	rng := rand.New(rand.NewSource(seed))
 	for {
-		play(btnA, btnB, buzzer, rng)
+		if !play(btnA, btnB, buzzer, rng) {
+			return // メニューへ
+		}
 	}
 }
 
-func title(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer) int64 {
+func title(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer) (int64, bool) {
 	display.FillScreen(colSky)
 	display.FillRectangle(0, 0, scrW, 26, colBar)
-	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 6, 100, "DINO", color.RGBA{60, 60, 60, 255})
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 140, "A: jump", color.RGBA{40, 40, 40, 255})
+	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 6, 96, "DINO", color.RGBA{60, 60, 60, 255})
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 134, "A: jump", color.RGBA{40, 40, 40, 255})
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 156, "hold A:menu", color.RGBA{40, 40, 40, 255})
 	drawSound(bz.Muted())
 	return m5stickc.WaitStart(btnA, btnB, bz, func() { drawSound(bz.Muted()) })
 }
 
-func play(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rng *rand.Rand) {
+// play は1ゲーム実行し、リトライ(true)/メニュー復帰(false)を返す。
+func play(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rng *rand.Rand) bool {
 	// 静的な背景（バンドの外）を一度だけ描く。
 	display.FillScreen(colSky)
 	display.FillRectangle(0, 0, scrW, 26, colBar)
@@ -135,8 +143,7 @@ func play(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rng *rand.Rand) {
 
 		// 当たり判定。
 		if hit(dinoTop, obstacles) {
-			gameOver(btnA, btnB, bz, score)
-			return
+			return gameOver(btnA, btnB, bz, score)
 		}
 
 		// スコアと難易度。
@@ -189,13 +196,14 @@ func drawSound(muted bool) {
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 8, 233, m5stickc.SoundLabel(muted), colText)
 }
 
-func gameOver(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, score int) {
+func gameOver(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, score int) bool {
 	m5stickc.GameOverJingle(bz)
 
-	display.FillRectangle(0, 95, scrW, 90, colBG)
-	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 24, 122, "GAME", colText)
-	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 24, 148, "OVER", colText)
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 22, 175, "A: retry", colText)
+	display.FillRectangle(0, 95, scrW, 95, colBG)
+	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 24, 120, "GAME", colText)
+	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 24, 144, "OVER", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 22, 166, "A: retry", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 22, 184, "hold A:menu", colText)
 
-	m5stickc.WaitRetry(btnA, btnB, bz, func() { drawSound(bz.Muted()) })
+	return m5stickc.WaitRetryOrExit(btnA, btnB, bz, func() { drawSound(bz.Muted()) })
 }

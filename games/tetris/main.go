@@ -10,7 +10,7 @@
 // 画面: 左に枠付きの盤面、右に NEXT（次のピース）を表示。
 //
 // 書き込み: make flash PROJ=tetris
-package main
+package tetris
 
 import (
 	"image/color"
@@ -84,9 +84,13 @@ var melody = []struct{ f, d int }{
 
 // playMelody はメロディを1回再生する（ブロッキング）。再生中も btnB でミュート
 // 切替でき、ミュートすると以降の音は即座に無音で進む（実質中断）。
-func playMelody(bz *m5stickc.Buzzer, btnB m5stickc.Button) {
+func playMelody(bz *m5stickc.Buzzer, btnA, btnB m5stickc.Button) {
 	soundBtn := m5stickc.NewEdgeButton(btnB)
+	skipBtn := m5stickc.NewEdgeButton(btnA)
 	for _, n := range melody {
+		if skipBtn.Tapped() {
+			return // A でスキップしてゲーム開始
+		}
 		if soundBtn.Tapped() {
 			bz.ToggleMuted()
 			drawSound(bz.Muted())
@@ -127,32 +131,37 @@ var (
 	nextKind int
 )
 
-func main() {
-	con := m5stickc.NewConsole()
+// Run はランチャー（または cmd/tetris）から呼ばれるエントリ。IMU(チルト)必須。
+func Run(con *m5stickc.Console, imu *m5stickc.IMU) {
 	display = con.Display
 	btnA, btnB, buzzer := con.BtnA, con.BtnB, con.Buzzer
 
-	imu, err := m5stickc.NewIMU()
-	if err != nil {
+	if imu == nil {
 		display.FillScreen(colBG)
 		tinyfont.WriteLine(display, &freemono.Bold9pt7b, 8, 80, "IMU FAIL", color.RGBA{230, 40, 40, 255})
-		for {
-			time.Sleep(time.Second)
-		}
+		time.Sleep(2 * time.Second)
+		return
 	}
 
-	rng := rand.New(rand.NewSource(title(btnA, btnB, buzzer)))
+	seed, exit := title(btnA, btnB, buzzer)
+	if exit {
+		return // メニューへ
+	}
+	rng := rand.New(rand.NewSource(seed))
 	for {
-		play(imu, btnA, btnB, buzzer, rng)
+		if !play(imu, btnA, btnB, buzzer, rng) {
+			return // メニューへ
+		}
 	}
 }
 
-func title(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer) int64 {
+func title(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer) (int64, bool) {
 	display.FillScreen(colBG)
-	tinyfont.WriteLine(display, &freemono.Bold18pt7b, 6, 90, "TETRIS", colText)
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 130, "Tilt: move", colText)
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 150, "Tilt v: drop", colText)
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 170, "A: rotate", colText)
+	tinyfont.WriteLine(display, &freemono.Bold18pt7b, 6, 84, "TETRIS", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 120, "Tilt: move", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 140, "Tilt v: drop", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 160, "A: rotate", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 180, "hold A:menu", colText)
 	drawTitleSound(bz.Muted())
 	return m5stickc.WaitStart(btnA, btnB, bz, func() { drawTitleSound(bz.Muted()) })
 }
@@ -163,7 +172,8 @@ func drawTitleSound(muted bool) {
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 222, m5stickc.SoundLabel(muted), colText)
 }
 
-func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rng *rand.Rand) {
+// play は1ゲーム実行し、リトライ(true)/メニュー復帰(false)を返す。
+func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rng *rand.Rand) bool {
 	grid = [rows][cols]uint8{}
 	score := 0
 	lines := 0
@@ -177,12 +187,11 @@ func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rn
 	nextKind = rng.Intn(7)
 	spawn(rng)
 	if collides(cur.cells()) {
-		gameOver(btnA, btnB, bz, score)
-		return
+		return gameOver(btnA, btnB, bz, score)
 	}
 	drawPiece(cur, true)
 
-	playMelody(bz, btnB) // 開始メロディ（1回）。終わると操作音が鳴る。再生中も B でミュート可。
+	playMelody(bz, btnA, btnB) // 開始メロディ。A でスキップ、B でミュート可。
 
 	var prevA bool
 	soundBtn := m5stickc.NewEdgeButton(btnB)
@@ -243,8 +252,7 @@ func play(imu *m5stickc.IMU, btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rn
 				}
 				spawn(rng)
 				if collides(cur.cells()) {
-					gameOver(btnA, btnB, bz, score)
-					return
+					return gameOver(btnA, btnB, bz, score)
 				}
 				drawPiece(cur, true)
 			}
@@ -420,13 +428,14 @@ func drawSound(muted bool) {
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 4, 34, m5stickc.SoundLabel(muted), colText)
 }
 
-func gameOver(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, score int) {
+func gameOver(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, score int) bool {
 	m5stickc.GameOverJingle(bz)
 
-	display.FillRectangle(boardX0, 110, boardW, 78, color.RGBA{0, 0, 0, 255})
-	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 8, 138, "GAME", colText)
-	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 8, 162, "OVER", colText)
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 184, "A: retry", colText)
+	display.FillRectangle(boardX0, 104, boardW, 96, color.RGBA{0, 0, 0, 255})
+	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 8, 130, "GAME", colText)
+	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 8, 154, "OVER", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 174, "A:retry", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 192, "holdA:menu", colText)
 
-	m5stickc.WaitRetry(btnA, btnB, bz, func() { drawSound(bz.Muted()) })
+	return m5stickc.WaitRetryOrExit(btnA, btnB, bz, func() { drawSound(bz.Muted()) })
 }

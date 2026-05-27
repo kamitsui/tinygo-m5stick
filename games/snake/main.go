@@ -6,7 +6,7 @@
 //   - ボタンB: 右に回転（時計回り）
 //
 // 書き込み: make flash PROJ=snake
-package main
+package snake
 
 import (
 	"image/color"
@@ -41,40 +41,39 @@ type pt struct{ x, y int16 }
 
 var display *m5stickc.Display
 
-func main() {
-	// Snake は A=左折 / B=右折 で 2 ボタンとも操作に使うため、サウンド ON/OFF は
-	// 持たない（他ゲームと違い B はミュート切替に使わない）。共通の Console と
-	// GameOverJingle のみ利用する。
-	con := m5stickc.NewConsole()
+// Run はランチャー（または cmd/snake）から呼ばれるエントリ。
+// Snake は A=左折 / B=右折 で 2 ボタンとも操作に使うため、サウンド ON/OFF は
+// 持たない（B はミュート切替に使わない）。IMU は使わない。
+func Run(con *m5stickc.Console, imu *m5stickc.IMU) {
 	display = con.Display
 	btnA, btnB, buzzer := con.BtnA, con.BtnB, con.Buzzer
 
-	rng := rand.New(rand.NewSource(titleAndSeed(btnA)))
+	seed, exit := titleAndSeed(btnA, btnB, buzzer)
+	if exit {
+		return // メニューへ戻る
+	}
+	rng := rand.New(rand.NewSource(seed))
 	for {
-		playGame(btnA, btnB, buzzer, rng)
+		if !playGame(btnA, btnB, buzzer, rng) {
+			return // メニューへ戻る
+		}
 	}
 }
 
-// titleAndSeed はタイトルを表示し、A が押されるまでの待ち時間を乱数シードに使う。
-func titleAndSeed(btnA m5stickc.Button) int64 {
+// titleAndSeed はタイトルを表示し、(乱数シード, メニューへ戻るか) を返す。
+// Snake は音切替が無いので WaitStart の B(onToggle) は nil。
+func titleAndSeed(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer) (int64, bool) {
 	display.FillScreen(colBG)
-	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 18, 100, "SNAKE", colSnake)
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 16, 140, "Press A", colText)
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 8, 185, "A: turn L", colText)
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 8, 210, "B: turn R", colText)
+	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 18, 96, "SNAKE", colSnake)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 16, 132, "Tap A: go", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 8, 160, "A:L  B:R", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 8, 186, "hold A:menu", colText)
 
-	var n int64
-	for !btnA.Pressed() {
-		n++
-		time.Sleep(5 * time.Millisecond)
-	}
-	for btnA.Pressed() { // 離されるまで待つ
-		time.Sleep(10 * time.Millisecond)
-	}
-	return n + time.Now().UnixNano()
+	return m5stickc.WaitStart(btnA, btnB, bz, nil)
 }
 
-func playGame(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rng *rand.Rand) {
+// playGame は1ゲーム実行し、リトライするなら true、メニューへ戻るなら false を返す。
+func playGame(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rng *rand.Rand) bool {
 	display.FillScreen(colBG)
 	drawBar(0)
 
@@ -129,8 +128,7 @@ func playGame(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, rng *rand.Rand) {
 		// 壁、または自分の体（末尾は移動で空くので除外）への衝突で終了。
 		if head.x < 0 || head.x >= cols || head.y < 0 || head.y >= rows ||
 			hits(body[:len(body)-1], head) {
-			gameOver(btnA, bz, score)
-			return
+			return gameOver(btnA, btnB, bz, score)
 		}
 
 		eating := head == food
@@ -184,18 +182,15 @@ func drawBar(score int) {
 	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 6, 16, "SCORE "+strconv.Itoa(score), colText)
 }
 
-func gameOver(btnA m5stickc.Button, bz *m5stickc.Buzzer, score int) {
+// gameOver は終了画面を表示し、リトライ(true)/メニュー復帰(false)を返す。
+func gameOver(btnA, btnB m5stickc.Button, bz *m5stickc.Buzzer, score int) bool {
 	m5stickc.GameOverJingle(bz)
 
-	display.FillRectangle(0, 88, 135, 80, colBG)
-	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 22, 116, "GAME", colText)
-	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 22, 140, "OVER", colText)
-	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 18, 164, "A: retry", colText)
+	display.FillRectangle(0, 84, 135, 96, colBG)
+	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 22, 112, "GAME", colText)
+	tinyfont.WriteLine(display, &freemono.Bold12pt7b, 22, 136, "OVER", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 18, 158, "A: retry", colText)
+	tinyfont.WriteLine(display, &freemono.Bold9pt7b, 18, 176, "hold A:menu", colText)
 
-	for btnA.Pressed() { // まず離す
-		time.Sleep(20 * time.Millisecond)
-	}
-	for !btnA.Pressed() { // 押されるまで待つ
-		time.Sleep(20 * time.Millisecond)
-	}
+	return m5stickc.WaitRetryOrExit(btnA, btnB, bz, nil) // snake は音切替なし
 }
