@@ -23,6 +23,11 @@
 # フック等のシェルスクリプト
 !*.sh
 
+# ドキュメント用の画像（スクショ/操作デモ）。WebP を主役に。
+!*.webp
+!*.png
+!*.gif
+
 # Node / VitePress（ルート限定で許可。node_modules 等への波及を防ぐため
 # パス指定で個別に許可する）
 !/package.json
