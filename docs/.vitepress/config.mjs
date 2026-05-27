@@ -41,6 +41,12 @@ export default withMermaid(defineConfig({
           { text: '各ゲームの実装', link: '/games/implementations' },
         ],
       },
+      {
+        text: '技術ノート',
+        items: [
+          { text: 'ブザー音と非ブロッキング再生', link: '/notes/nonblocking-audio' },
+        ],
+      },
     ],
 
     socialLinks: [
