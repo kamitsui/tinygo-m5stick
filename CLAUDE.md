@@ -37,5 +37,7 @@ make help                     # ターゲット一覧と現在の変数
 
 - **コミットは英語の Conventional Commits**（例: `feat(m5stickc): ...`, `build: ...`）。
 - 作業は **feature ブランチ** で行い、**PR で main にマージ**（squash, ブランチ削除）。PR 本文に `Closes #N` を付ける。
+- **Issue の運用（必須）**: Issue をクローズする前（PR マージ／`gh issue close`／PR本文の `Closes #N` のいずれでも）に、対応する Issue へ**取り組み内容のコメントを必ず投稿する**。内容は「実装内容 / 改善内容 / バグ修正 / 結果 / 残課題」を日本語で要約（#13 のコメントが見本）。
+  - `gh pr merge` / `gh issue close` は PreToolUse フック（`.claude/hooks/issue-doc-reminder.sh`）が注意喚起する。コメント投稿済みなら、コマンド末尾に ` # ISSUE_DOCUMENTED` を付けて実行する。
 - `.gitignore` は**ホワイトリスト方式**。新しい拡張子・拡張子なしファイルを追加したら、追跡されるか `git status` で確認（取りこぼしに注意）。
 - 実機検証が必要な変更は、可能なら `make flash` で動作確認してからコミットする。
