@@ -4,7 +4,9 @@
 
 📖 **ドキュメント**: https://kamitsui.github.io/tinygo-m5stick/
 
-> 画像/操作デモ（アニメWebP）は順次追加予定（[#39](https://github.com/kamitsui/tinygo-m5stick/issues/39)）。下表の「画面」セルに掲載します。
+<p align="center">
+  <img src="docs/public/images/menu.webp" width="280" alt="Launcher menu">
+</p>
 
 ## クイックスタート（macOS）
 
@@ -22,12 +24,12 @@ USB-C を下にして持つと表示が正立します。メニューは **A タ
 
 | 画面 | ゲーム | 操作 | 単体で書き込み |
 |---|---|---|---|
-| _準備中_ | **Snake** | A=左折 / B=右折 | `make flash PROJ=snake` |
-| _準備中_ | **2048** | チルトでスライド / A=リトライ / B=音 | `make flash PROJ=2048` |
-| _準備中_ | **Pong** | チルトでパドル / B=音（CPU対戦・先に5点）| `make flash PROJ=pong` |
-| _準備中_ | **Dinosaur** | A=ジャンプ / B=音 | `make flash PROJ=dinosaur` |
-| _準備中_ | **Tetris** | チルト移動・下=ドロップ / A=回転 / B=音 | `make flash PROJ=tetris` |
-| _準備中_ | **Invaders** | チルト移動 / A=発射(長押し連射) / B=音 | `make flash PROJ=invaders` |
+| <img src="docs/public/images/games/snake-demo.webp" width="120" alt="Snake demo"> | **Snake** | A=左折 / B=右折 | `make flash PROJ=snake` |
+| <img src="docs/public/images/games/2048-demo.webp" width="120" alt="2048 demo"> | **2048** | チルトでスライド / A=リトライ / B=音 | `make flash PROJ=2048` |
+| <img src="docs/public/images/games/pong-demo.webp" width="120" alt="Pong demo"> | **Pong** | チルトでパドル / B=音（CPU対戦・先に5点）| `make flash PROJ=pong` |
+| <img src="docs/public/images/games/dinosaur-demo.webp" width="120" alt="Dinosaur demo"> | **Dinosaur** | A=ジャンプ / B=音 | `make flash PROJ=dinosaur` |
+| <img src="docs/public/images/games/tetris-demo.webp" width="120" alt="Tetris demo"> | **Tetris** | チルト移動・下=ドロップ / A=回転 / B=音 | `make flash PROJ=tetris` |
+| <img src="docs/public/images/games/invaders-demo.webp" width="120" alt="Invaders demo"> | **Invaders** | チルト移動 / A=発射(長押し連射) / B=音 | `make flash PROJ=invaders` |
 
 各ゲームのタイトル/ゲームオーバーで **A 長押し＝ランチャーのメニューへ戻る**。設計の詳細は[ゲーム設計ドキュメント](https://kamitsui.github.io/tinygo-m5stick/games/)。
 
