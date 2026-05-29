@@ -5,6 +5,9 @@ hero:
   name: tinygo-m5stick
   text: TinyGo × M5StickC Plus2
   tagline: 小さなマイコンで Go を動かす。チュートリアルからレトロゲームまで。
+  image:
+    src: /images/menu.webp
+    alt: ランチャーのメニュー画面
   actions:
     - theme: brand
       text: はじめる
@@ -24,6 +27,16 @@ features:
   - title: レトロゲーム
     details: Snake / 2048 / Pong / Dinosaur / Tetris / Invaders を作って遊ぶ（開発中）。
 ---
+
+## レトロゲーム
+
+| ![Snake](/images/games/snake-demo.webp) | ![2048](/images/games/2048-demo.webp) | ![Pong](/images/games/pong-demo.webp) |
+|:---:|:---:|:---:|
+| **Snake** | **2048** | **Pong** |
+| ![Dinosaur](/images/games/dinosaur-demo.webp) | ![Tetris](/images/games/tetris-demo.webp) | ![Invaders](/images/games/invaders-demo.webp) |
+| **Dinosaur** | **Tetris** | **Invaders** |
+
+操作・実装の詳細は [ゲーム設計](/games/) を参照。
 
 ## このサイトについて
 
